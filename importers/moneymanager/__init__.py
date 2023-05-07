@@ -29,8 +29,15 @@ class MoneyManagerImporter(importer.ImporterProtocol):
                 meta = data.new_metadata(f.name, index)
                 txn_date = datetime.datetime.strptime(row["Date"], "%m/%d/%Y %H:%M:%S")
 
-                narrations_builder = [row["Income/Expense"], row["Category"], row["Subcategory"]]
-                txn_description = ' '.join(narrations_builder)
+                narrations_builder = [row["Income/Expense"],
+                                      row["Category"],
+                                      row["Subcategory"] if row["Subcategory"] != '' else '']
+                for i, s in enumerate(narrations_builder):
+                    if i == 0:
+                        txn_description = s
+                    else:
+                        if s != '':
+                            txn_description += " " + s
 
                 txn_builder = data.Transaction(
                     meta = meta,
@@ -58,8 +65,9 @@ class MoneyManagerImporter(importer.ImporterProtocol):
                 )
 
                 # build the account name for income or expense category
-                txn_type = "Expenses" if row["Income/Expense"] == "Expense" else "Income"
-                account_name_builder = ["Expenses",row["Category"],row["Subcategory"] if row["Subcategory"] != '' else '']
+                account_name_builder = [row["Income/Expense"],
+                                        row["Category"],
+                                        row["Subcategory"] if row["Subcategory"] != '' else '']
                 for i, s in enumerate(account_name_builder):
                     if i == 0:
                         txn_account = s
