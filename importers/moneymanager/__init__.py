@@ -18,26 +18,39 @@ class MoneyManagerImporter(importer.ImporterProtocol):
         return re.match(r"Spend_Manager-\d+-\d+-\d+_\d+-\d+-\d+.csv",
             os.path.basename(f.name))
 
+    def build_narrations(self, row):
+        if row["Description"] != "":
+            return row["Description"]
+        else:
+            narrations_builder = [row["Income/Expense"],
+                                  row["Category"],
+                                  row["Subcategory"] if row["Subcategory"] != '' else '']
+            for i, s in enumerate(narrations_builder):
+                if i == 0:
+                    narrations = s
+                else:
+                    if s != '':
+                        narrations += " " + s
+            return narrations
+
     def extract(self, f):
         entries = []
 
         with open(f.name, "r") as f:
             for index, row in enumerate(csv.DictReader(f)):
-                # skip the first row as it is header
+                # skip the first row as it is just field name description
                 if index == 0:
                     continue
                 meta = data.new_metadata(f.name, index)
-                txn_date = datetime.datetime.strptime(row["Date"], "%m/%d/%Y %H:%M:%S")
 
-                narrations_builder = [row["Income/Expense"],
-                                      row["Category"],
-                                      row["Subcategory"] if row["Subcategory"] != '' else '']
-                for i, s in enumerate(narrations_builder):
-                    if i == 0:
-                        txn_description = s
-                    else:
-                        if s != '':
-                            txn_description += " " + s
+                # prepare transactions date, get the date only, ex: "2023-01-01"
+                txn_date = datetime.datetime.strptime(row["Date"], "%m/%d/%Y %H:%M:%S").date()
+
+                # build narration/description of the transaction
+                # if "Description" column is not empty then use it for transaction description
+                # else build description by concatenating type, category and subcategory
+                #   ex: "Expense Lifestyle Subscription"
+                txn_description = self.build_narrations(row)
 
                 txn_builder = data.Transaction(
                     meta = meta,
@@ -70,7 +83,7 @@ class MoneyManagerImporter(importer.ImporterProtocol):
                                         row["Subcategory"] if row["Subcategory"] != '' else '']
                 for i, s in enumerate(account_name_builder):
                     if i == 0:
-                        txn_account = s
+                        txn_account = s if s == "Income" else "Expenses"
                     else:
                         if s != '':
                             txn_account += ":" + s
